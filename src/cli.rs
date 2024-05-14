@@ -6,8 +6,11 @@ pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Commands>,
 
-    #[arg(last = true)]
-    pub freeform: Vec<String>,
+    #[arg(short, long)]
+    pub profile: Option<String>,
+
+    #[arg(trailing_var_arg = true)]
+    pub args: Vec<String>,
 }
 
 #[derive(Subcommand)]

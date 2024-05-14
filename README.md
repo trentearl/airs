@@ -1,8 +1,14 @@
+airs (Ai Rust)
+------------
+Airs is a tool for using Ai on the command-line
 
 
-airs profile new codefix
+
+
+```
 airs profile list
-airs profile remove
-airs profile use codefix
+airs profile use brief
 airs what is the capital of china
+airs -p bash list all symlinks
 
+```
