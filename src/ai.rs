@@ -1,9 +1,11 @@
 use serde::Deserialize;
 use serde_json::json;
 use std::env;
-use tracing::{debug, info};
+use tracing::debug;
 
-use crate::openai_v1_chat::{OpenAIChatCompletion, OpenAIChatMessage};
+use crate::openai_shared::OpenAIChatMessage;
+use crate::openai_v1_chat::OpenAIChatCompletion;
+use crate::openai_v1_image::OpenAIImageGeneration;
 
 pub async fn chat_completion(profile: OpenAIChatCompletion, args: String) {
     let openai_key = env::var("OPENAI_API_KEY").expect("OPENAI_API_KEY is not set");
@@ -60,6 +62,42 @@ pub async fn chat_completion(profile: OpenAIChatCompletion, args: String) {
     }
 }
 
+pub async fn image_generation(profile: OpenAIImageGeneration, args: String) {
+    let openai_key = env::var("OPENAI_API_KEY").expect("OPENAI_API_KEY is not set");
+
+    let client = reqwest::Client::new();
+
+    let payload = json!({
+        "model": profile.model,
+        "prompt": args,
+        "n": profile.n,
+        "size": profile.size,
+    });
+
+    let res = client
+        .post(&profile.url)
+        .header("Authorization", format!("Bearer {}", openai_key))
+        .json(&payload)
+        .send()
+        .await
+        .expect("openai error");
+
+    let status = res.status();
+    if !status.is_success() {
+        let t = res.json::<OpenAIErrorResponse>().await.expect("weird json");
+        panic!("openai error: {}", t.error.message);
+    }
+
+    let json = res
+        .json::<ImageGenerationResponse>()
+        .await
+        .expect("weird json");
+
+    for image in json.data {
+        println!("{}", image.url);
+    }
+}
+
 #[derive(Deserialize, Debug)]
 struct OpenAIErrorResponse {
     error: OpenAIError,
@@ -68,6 +106,16 @@ struct OpenAIErrorResponse {
 #[derive(Deserialize, Debug)]
 struct OpenAIError {
     message: String,
+}
+
+#[derive(Deserialize, Debug)]
+struct ImageGeneration {
+    pub url: String,
+}
+
+#[derive(Deserialize, Debug)]
+struct ImageGenerationResponse {
+    pub data: Vec<ImageGeneration>,
 }
 
 #[derive(Deserialize, Debug)]

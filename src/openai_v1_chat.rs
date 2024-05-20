@@ -2,12 +2,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::io;
-
-#[derive(Clone, Deserialize, Debug, Serialize)]
-pub struct OpenAIChatMessage {
-    pub role: String,
-    pub content: String,
-}
+use crate::openai_shared::OpenAIChatMessage;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub enum OpenAIChatResponseFormatType {
@@ -40,9 +35,9 @@ pub struct OpenAIChatResponseFormat {
     pub response_type: OpenAIChatResponseFormatType,
 }
 
-fn intermediate(s: &String) -> Vec<Intermediary> {
+fn intermediate(s: &str) -> Vec<Intermediary> {
     let mut ret: Vec<Intermediary> = vec![];
-    let base: Intermediary = serde_json::from_str(&s).unwrap();
+    let base: Intermediary = serde_json::from_str(s).unwrap();
 
     let iterable = match base.inherits.as_ref() {
         Some(i) => i,
@@ -60,16 +55,16 @@ fn intermediate(s: &String) -> Vec<Intermediary> {
 }
 
 pub fn default() -> OpenAIChatCompletion {
-    return OpenAIChatCompletion {
+    OpenAIChatCompletion {
         url: "https://api.openai.com/v1/chat/completions".to_string(),
         model: "gpt-4o".to_string(),
         max_tokens: 550,
         messages: vec![],
         response_format: None,
-    };
+    }
 }
 
-pub fn profile(s: &String) -> OpenAIChatCompletion {
+pub fn profile(s: &str) -> OpenAIChatCompletion {
     let def = default();
     let intermediaries = intermediate(s);
 
@@ -100,11 +95,11 @@ pub fn profile(s: &String) -> OpenAIChatCompletion {
         }
     }
 
-    return OpenAIChatCompletion {
+    OpenAIChatCompletion {
         url,
         model,
         max_tokens,
         messages,
         response_format,
-    };
+    }
 }

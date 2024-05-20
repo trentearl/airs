@@ -1,11 +1,9 @@
-use tokio;
 use tracing::debug;
-use tracing_subscriber;
-
 mod ai;
 mod cli;
 mod config;
 mod io;
+mod openai_shared;
 mod openai_v1_chat;
 mod openai_v1_image;
 mod profile;
@@ -23,9 +21,11 @@ async fn main() -> Result<(), reqwest::Error> {
             cli::ProfileAction::Use { name } => profile::profile_use(name),
             cli::ProfileAction::Remove { name } => profile::profile_remove(name),
             cli::ProfileAction::List => profile::profile_list(),
+            cli::ProfileAction::Edit { name } => profile::profile_edit(name),
+            cli::ProfileAction::EditJson { name } => profile::profile_edit_json(name),
         },
         None => {
-            let profile_name = args.profile.unwrap_or_else(|| profile_current_text());
+            let profile_name = args.profile.unwrap_or_else(profile_current_text);
             debug!(profile_name, "found profile");
             let text = args.args;
 
@@ -34,8 +34,9 @@ async fn main() -> Result<(), reqwest::Error> {
                     debug!("profile kind: http://api.openai.com/v1/chat/completions");
                     ai::chat_completion(chat, text.join(" ")).await
                 }
-                _ => {
-                    panic!("i cant handle this profile type")
+                Profile::OpenAIV1ImageGeneration(image) => {
+                    debug!("profile kind: http://api.openai.com/v1/images/generations");
+                    ai::image_generation(image, text.join(" ")).await
                 }
             }
         }

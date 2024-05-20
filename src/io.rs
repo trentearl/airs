@@ -7,10 +7,10 @@ fn get_config_path() -> PathBuf {
             let mut path = PathBuf::new();
             path.push(home_path);
             path.push(".airs");
-            return path;
+            path
         }
         None => panic!("Home directory not found"),
-    };
+    }
 }
 
 pub fn read_config() -> String {
@@ -21,7 +21,7 @@ pub fn read_config() -> String {
         return read_to_string(path).unwrap();
     }
 
-    return "{}".to_string();
+    "{}".to_string()
 }
 
 pub fn write_config(config: String) {
@@ -41,6 +41,14 @@ pub fn read_profile_file(name: &String) -> String {
     }
 
     panic!("Profile not found");
+}
+
+pub fn write_profile_file(name: &String, content: String) {
+    let mut path = get_config_path();
+    path.push(name);
+    path.set_extension("json");
+
+    std::fs::write(path, content).unwrap();
 }
 
 pub fn list_profiles() -> Vec<String> {

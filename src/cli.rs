@@ -15,6 +15,7 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
+    #[clap(alias = "prof")]
     Profile {
         #[command(subcommand)]
         action: ProfileAction,
@@ -22,13 +23,33 @@ pub enum Commands {
 }
 
 #[derive(Subcommand)]
+pub enum EditField {
+    Json { name: String },
+    Prompt { name: String },
+}
+
+#[derive(Subcommand)]
 pub enum ProfileAction {
-    New { name: String },
-    Use { name: String },
-    Remove { name: String },
+    New {
+        name: String,
+    },
+    Edit {
+        name: String,
+    },
+    EditJson {
+        name: String,
+    },
+    Use {
+        name: String,
+    },
+    Remove {
+        name: String,
+    },
+
+    #[clap(alias = "ls")]
     List,
 }
 
 pub fn parse() -> Cli {
-    return Cli::parse();
+    Cli::parse()
 }

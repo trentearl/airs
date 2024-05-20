@@ -1,8 +1,15 @@
+use std::fs;
+use std::process::Command;
+
 use serde::Deserialize;
+use serde::Serialize;
+use tempfile::Builder;
+use tempfile::NamedTempFile;
 use tracing::debug;
 
 use crate::config;
 use crate::io;
+use crate::openai_shared;
 use crate::openai_v1_chat;
 use crate::openai_v1_image;
 
@@ -18,7 +25,7 @@ enum ProfKind {
     #[serde(rename = "https://api.openai.com/v1/chat/completions")]
     OpenAIChatCompletion,
 
-    #[serde(rename = "https://api.openai.com/v1/image/generate")]
+    #[serde(rename = "https://api.openai.com/v1/images/generations")]
     OpenAIImageGeneration,
 }
 
@@ -30,7 +37,7 @@ impl Prof for openai_v1_chat::OpenAIChatCompletion {
 
 impl Prof for openai_v1_image::OpenAIImageGeneration {
     fn kind(&self) -> Kind {
-        Kind::OpenAIV1ChatCompletion
+        Kind::OpenAIV1ImageGeneration
     }
 }
 
@@ -38,13 +45,13 @@ trait Prof {
     fn kind(&self) -> Kind;
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "kind")]
 pub enum Profile {
     #[serde(rename = "https://api.openai.com/v1/chat/completions")]
     OpenAIV1ChatCompletion(openai_v1_chat::OpenAIChatCompletion),
 
-    #[serde(rename = "https://api.openai.com/v1/image/generate")]
+    #[serde(rename = "https://api.openai.com/v1/images/generations")]
     OpenAIV1ImageGeneration(openai_v1_image::OpenAIImageGeneration),
 }
 
@@ -63,11 +70,10 @@ pub fn profile_get(name: String) -> Profile {
     let profile: ProfileSimple = serde_json::from_str(&string).unwrap();
     if profile.kind == "https://api.openai.com/v1/chat/completions" {
         let p = openai_v1_chat::profile(&string);
-        return Profile::OpenAIV1ChatCompletion(p);
-    } else if profile.kind == "https://api.openai.com/v1/image/generate" {
-        return Profile::OpenAIV1ImageGeneration(
-            serde_json::from_str(&string).expect("failed to parse profile"),
-        );
+        Profile::OpenAIV1ChatCompletion(p)
+    } else if profile.kind == "https://api.openai.com/v1/images/generations" {
+        let p = openai_v1_image::profile(&string);
+        Profile::OpenAIV1ImageGeneration(p)
     } else {
         panic!("unknown profile kind");
     }
@@ -79,8 +85,100 @@ pub fn profile_current_text() -> String {
         .unwrap_or("default".to_string())
 }
 
+fn get_prompt(messages: &[openai_shared::OpenAIChatMessage]) -> String {
+    let l = messages.len();
+
+    if l == 0 {
+        String::from("")
+    } else {
+        messages[l - 1].content.clone()
+    }
+}
+
+fn edit(input: &String) -> String {
+    let editor = std::env::var("EDITOR").unwrap_or("vi".to_string());
+    let temp_file = Builder::new()
+        .prefix("airs")
+        .suffix(".json")
+        .tempfile()
+        .unwrap();
+
+    let temp_path = temp_file
+        .path()
+        .to_str()
+        .expect("Failed to get temp file path")
+        .to_string();
+
+    fs::write(&temp_path, input).expect("Failed to write to temporary file");
+
+    Command::new(editor)
+        .arg(&temp_path)
+        .status()
+        .expect("Failed to open editor");
+
+    fs::read_to_string(temp_path).expect("Failed to read temporary file")
+}
+
+fn set_prompt(messages: &mut Vec<openai_shared::OpenAIChatMessage>, content: String) {
+    let l = messages.len();
+
+    if l == 0 {
+        messages.push(openai_shared::OpenAIChatMessage {
+            content,
+            role: "user".to_string(),
+        });
+    } else {
+        messages[l - 1].content = content;
+    }
+}
+
+pub fn profile_edit(name: String) {
+    let profile = profile_get(name.clone());
+    match profile {
+        Profile::OpenAIV1ChatCompletion(mut p) => {
+            let prompt = edit(&get_prompt(&p.messages));
+            set_prompt(&mut p.messages, prompt);
+            let prof = Profile::OpenAIV1ChatCompletion(p);
+            let content = serde_json::to_string_pretty(&prof).expect("failed to serialize profile");
+            io::write_profile_file(&name, content);
+        }
+
+        Profile::OpenAIV1ImageGeneration(p) => {
+            let prompt = edit(&p.prompt);
+            let mut p = p;
+            p.prompt = prompt;
+            let prof = Profile::OpenAIV1ImageGeneration(p);
+            let content = serde_json::to_string_pretty(&prof).expect("failed to serialize profile");
+            io::write_profile_file(&name, content);
+        }
+    };
+}
+
+pub fn profile_edit_json(name: String) {
+    let profiles = io::list_profiles();
+    match profiles.iter().find(|&x| x == &name) {
+        Some(_) => {}
+        None => {
+            panic!("profile: {} not found", name);
+        }
+    }
+
+    let profile_string = io::read_profile_file(&name);
+    let content = edit(&profile_string);
+    let _: ProfileSimple = serde_json::from_str(&content).expect("Invalid JSON");
+
+    io::write_profile_file(&name, content);
+}
+
 pub fn profile_new(name: String) {
-    debug!(name, "profile_new");
+    let current = config::read_config()
+        .default_profile
+        .unwrap_or("default".to_string());
+    let profile = profile_get(current);
+
+    let content = edit(&serde_json::to_string_pretty(&profile).unwrap());
+
+    io::write_profile_file(&name, content);
 }
 
 pub fn profile_use(name: String) {
