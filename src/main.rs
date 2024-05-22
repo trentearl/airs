@@ -3,7 +3,6 @@ mod ai;
 mod cli;
 mod config;
 mod io;
-mod openai_shared;
 mod openai_v1_chat;
 mod openai_v1_image;
 mod profile;

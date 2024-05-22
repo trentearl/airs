@@ -4,12 +4,10 @@ use std::process::Command;
 use serde::Deserialize;
 use serde::Serialize;
 use tempfile::Builder;
-use tempfile::NamedTempFile;
 use tracing::debug;
 
 use crate::config;
 use crate::io;
-use crate::openai_shared;
 use crate::openai_v1_chat;
 use crate::openai_v1_image;
 
@@ -85,7 +83,7 @@ pub fn profile_current_text() -> String {
         .unwrap_or("default".to_string())
 }
 
-fn get_prompt(messages: &[openai_shared::OpenAIChatMessage]) -> String {
+fn get_prompt(messages: &[openai_v1_chat::OpenAIChatMessage]) -> String {
     let l = messages.len();
 
     if l == 0 {
@@ -119,11 +117,11 @@ fn edit(input: &String) -> String {
     fs::read_to_string(temp_path).expect("Failed to read temporary file")
 }
 
-fn set_prompt(messages: &mut Vec<openai_shared::OpenAIChatMessage>, content: String) {
+fn set_prompt(messages: &mut Vec<openai_v1_chat::OpenAIChatMessage>, content: String) {
     let l = messages.len();
 
     if l == 0 {
-        messages.push(openai_shared::OpenAIChatMessage {
+        messages.push(openai_v1_chat::OpenAIChatMessage {
             content,
             role: "user".to_string(),
         });

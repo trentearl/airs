@@ -3,8 +3,7 @@ use serde_json::json;
 use std::env;
 use tracing::debug;
 
-use crate::openai_shared::OpenAIChatMessage;
-use crate::openai_v1_chat::OpenAIChatCompletion;
+use crate::openai_v1_chat::{OpenAIChatCompletion, OpenAIChatMessage};
 use crate::openai_v1_image::OpenAIImageGeneration;
 
 pub async fn chat_completion(profile: OpenAIChatCompletion, args: String) {

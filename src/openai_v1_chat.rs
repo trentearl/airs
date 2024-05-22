@@ -2,7 +2,12 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::io;
-use crate::openai_shared::OpenAIChatMessage;
+
+#[derive(Clone, Deserialize, Debug, Serialize)]
+pub struct OpenAIChatMessage {
+    pub role: String,
+    pub content: String,
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 pub enum OpenAIChatResponseFormatType {
