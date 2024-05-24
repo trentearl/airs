@@ -34,7 +34,7 @@ pub enum ProfileAction {
         name: String,
     },
     Edit {
-        name: String,
+        name: Option<String>,
     },
     EditJson {
         name: String,

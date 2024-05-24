@@ -7,7 +7,7 @@ use tempfile::Builder;
 use tracing::debug;
 
 use crate::config;
-use crate::io;
+use crate::files;
 use crate::openai_v1_chat;
 use crate::openai_v1_image;
 
@@ -64,7 +64,7 @@ pub fn profile_get(name: String) -> Profile {
         return Profile::OpenAIV1ChatCompletion(def);
     }
 
-    let string = io::read_profile_file(&name);
+    let string = files::read_profile_file(&name);
     let profile: ProfileSimple = serde_json::from_str(&string).unwrap();
     if profile.kind == "https://api.openai.com/v1/chat/completions" {
         let p = openai_v1_chat::profile(&string);
@@ -130,15 +130,16 @@ fn set_prompt(messages: &mut Vec<openai_v1_chat::OpenAIChatMessage>, content: St
     }
 }
 
-pub fn profile_edit(name: String) {
-    let profile = profile_get(name.clone());
-    match profile {
+pub fn profile_edit(name_maybe: Option<String>) {
+    let name = name_maybe.unwrap_or_else(profile_current_text);
+
+    match profile_get(name.clone()) {
         Profile::OpenAIV1ChatCompletion(mut p) => {
             let prompt = edit(&get_prompt(&p.messages));
             set_prompt(&mut p.messages, prompt);
             let prof = Profile::OpenAIV1ChatCompletion(p);
             let content = serde_json::to_string_pretty(&prof).expect("failed to serialize profile");
-            io::write_profile_file(&name, content);
+            files::write_profile_file(&name, content);
         }
 
         Profile::OpenAIV1ImageGeneration(p) => {
@@ -147,13 +148,13 @@ pub fn profile_edit(name: String) {
             p.prompt = prompt;
             let prof = Profile::OpenAIV1ImageGeneration(p);
             let content = serde_json::to_string_pretty(&prof).expect("failed to serialize profile");
-            io::write_profile_file(&name, content);
+            files::write_profile_file(&name, content);
         }
     };
 }
 
 pub fn profile_edit_json(name: String) {
-    let profiles = io::list_profiles();
+    let profiles = files::list_profiles();
     match profiles.iter().find(|&x| x == &name) {
         Some(_) => {}
         None => {
@@ -161,11 +162,11 @@ pub fn profile_edit_json(name: String) {
         }
     }
 
-    let profile_string = io::read_profile_file(&name);
+    let profile_string = files::read_profile_file(&name);
     let content = edit(&profile_string);
     let _: ProfileSimple = serde_json::from_str(&content).expect("Invalid JSON");
 
-    io::write_profile_file(&name, content);
+    files::write_profile_file(&name, content);
 }
 
 pub fn profile_new(name: String) {
@@ -176,11 +177,11 @@ pub fn profile_new(name: String) {
 
     let content = edit(&serde_json::to_string_pretty(&profile).unwrap());
 
-    io::write_profile_file(&name, content);
+    files::write_profile_file(&name, content);
 }
 
 pub fn profile_use(name: String) {
-    let profiles = io::list_profiles();
+    let profiles = files::list_profiles();
     match profiles.iter().find(|&x| x == &name) {
         Some(_) => {}
         None => {
@@ -199,7 +200,7 @@ pub fn profile_list() {
         .default_profile
         .unwrap_or("default".to_string());
 
-    for profile in io::list_profiles() {
+    for profile in files::list_profiles() {
         if profile == current {
             println!("* {}", profile);
         } else {

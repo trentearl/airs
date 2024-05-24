@@ -1,13 +1,15 @@
-use tracing::debug;
 mod ai;
 mod cli;
 mod config;
-mod io;
+mod files;
 mod openai_v1_chat;
 mod openai_v1_image;
 mod profile;
 
 use crate::profile::{profile_current_text, profile_get, Profile};
+use is_terminal::IsTerminal;
+use std::io::{self, Read};
+use tracing::debug;
 
 #[tokio::main]
 async fn main() -> Result<(), reqwest::Error> {
@@ -26,7 +28,7 @@ async fn main() -> Result<(), reqwest::Error> {
         None => {
             let profile_name = args.profile.unwrap_or_else(profile_current_text);
             debug!(profile_name, "found profile");
-            let text = args.args;
+            let text = get_text(args.args);
 
             match profile_get(profile_name) {
                 Profile::OpenAIV1ChatCompletion(chat) => {
@@ -41,4 +43,19 @@ async fn main() -> Result<(), reqwest::Error> {
         }
     }
     return Ok(());
+}
+
+fn get_text(args: Vec<String>) -> Vec<String> {
+    let mut text = vec![];
+    for arg in args {
+        text.push(arg);
+    }
+
+    if !io::stdin().is_terminal() {
+        let mut input = String::new();
+        io::stdin().read_to_string(&mut input).unwrap();
+        text.push(input);
+    }
+
+    text
 }

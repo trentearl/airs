@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::io;
+use crate::files;
 
 #[derive(Clone, Deserialize, Debug, Serialize)]
 pub struct OpenAIChatMessage {
@@ -50,7 +50,7 @@ fn intermediate(s: &str) -> Vec<Intermediary> {
     };
 
     for child in iterable {
-        let mut i = intermediate(&io::read_profile_file(child));
+        let mut i = intermediate(&files::read_profile_file(child));
         ret.append(&mut i);
     }
 
